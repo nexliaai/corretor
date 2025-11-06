@@ -6,6 +6,11 @@ const WEBHOOK_URL = 'https://flows-whk.nexia.tec.br/webhook/929bd225-3de3-46f2-a
 
 export async function POST(request: Request) {
   try {
+    console.log('🔧 Verificando variáveis de ambiente...');
+    console.log('MINIO_ENDPOINT:', process.env.MINIO_ENDPOINT);
+    console.log('MINIO_BUCKET_NAME:', process.env.MINIO_BUCKET_NAME);
+    console.log('POSTGRES_HOST:', process.env.POSTGRES_HOST);
+    
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const documentType = formData.get('documentType') as string;
@@ -18,7 +23,7 @@ export async function POST(request: Request) {
     }
 
     console.log('📤 Iniciando upload e processamento via webhook...');
-    console.log('📄 Arquivo:', file.name);
+    console.log('📄 Arquivo:', file.name, 'Tamanho:', file.size, 'bytes');
     console.log('📋 Tipo:', documentType);
 
     // Upload para MinIO
@@ -28,16 +33,33 @@ export async function POST(request: Request) {
     const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const minioPath = `escopo/temp/${timestamp}_${sanitizedFileName}`;
 
-    const bucketExists = await minioClient.bucketExists(bucketName);
-    if (!bucketExists) {
-      await minioClient.makeBucket(bucketName, 'us-east-1');
+    console.log('🪣 Verificando bucket:', bucketName);
+    
+    try {
+      const bucketExists = await minioClient.bucketExists(bucketName);
+      console.log('✓ Bucket existe?', bucketExists);
+      
+      if (!bucketExists) {
+        console.log('⚠️ Bucket não existe, criando...');
+        await minioClient.makeBucket(bucketName, 'us-east-1');
+        console.log('✓ Bucket criado');
+      }
+    } catch (bucketError: any) {
+      console.error('❌ Erro ao verificar/criar bucket:', bucketError);
+      throw new Error(`Erro no MinIO (bucket): ${bucketError.message}`);
     }
 
-    await minioClient.putObject(bucketName, minioPath, buffer, buffer.length, {
-      'Content-Type': file.type,
-    });
-
-    console.log('✅ Arquivo enviado para MinIO:', minioPath);
+    console.log('📤 Enviando arquivo para MinIO:', minioPath);
+    
+    try {
+      await minioClient.putObject(bucketName, minioPath, buffer, buffer.length, {
+        'Content-Type': file.type,
+      });
+      console.log('✅ Arquivo enviado para MinIO');
+    } catch (uploadError: any) {
+      console.error('❌ Erro ao fazer upload para MinIO:', uploadError);
+      throw new Error(`Erro no upload MinIO: ${uploadError.message}`);
+    }
 
     // Gerar URL pré-assinada (válida por 2 horas)
     const fileUrl = await minioClient.presignedGetObject(
