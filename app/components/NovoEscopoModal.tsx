@@ -72,19 +72,39 @@ export default function NovoEscopoModal({ onClose, onComplete }: NovoEscopoModal
       
       console.log('✅ Resposta do webhook:', data);
       
-      // Se o webhook retornou dados extraídos diretamente
+      // Se o webhook retornou o ID da apólice (processamento concluído)
+      if (data.status === 'completed' && data.apolice_id) {
+        console.log('🎉 Apólice criada! ID:', data.apolice_id);
+        setStatus('completed');
+        setUploading(false);
+        setProcessing(false);
+        
+        // Redirecionar para a página da apólice após 2 segundos
+        setTimeout(() => {
+          window.location.href = `/apolice/${data.apolice_id}`;
+        }, 2000);
+        return;
+      }
+      
+      // Se o webhook retornou dados extraídos em formato detalhado
       if (data.webhook_response && data.webhook_response.extracted_data) {
         setExtractedData(data.webhook_response.extracted_data);
         setPotentialClient(data.webhook_response.potential_client || null);
         setStatus('review');
         setUploading(false);
         setProcessing(false);
-      } else {
-        // Aguardar processamento
+      } else if (data.status === 'processing') {
+        // Aguardar processamento assíncrono
+        setDocumentId(data.document_id);
         setStatus('processing');
         setUploading(false);
         setProcessing(true);
         console.log('⏳ Aguardando processamento do N8N...');
+        
+        // Iniciar verificação de status
+        checkProcessingStatus(data.document_id);
+      } else {
+        throw new Error('Resposta inesperada do webhook');
       }
     } catch (error: any) {
       console.error('❌ Erro no upload:', error);
@@ -556,10 +576,10 @@ export default function NovoEscopoModal({ onClose, onComplete }: NovoEscopoModal
               </div>
               <div className="text-center">
                 <p className="text-2xl font-display font-bold text-gray-900 mb-2">
-                  Dados salvos com sucesso!
+                  🎉 Apólice criada com sucesso!
                 </p>
                 <p className="text-gray-600">
-                  Redirecionando para o perfil do cliente...
+                  Redirecionando para a página da apólice...
                 </p>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-500">

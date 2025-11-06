@@ -113,21 +113,128 @@ export async function POST(request: Request) {
     });
 
     if (!webhookResponse.ok) {
+      console.error('❌ Webhook retornou status:', webhookResponse.status);
       throw new Error(`Webhook retornou erro: ${webhookResponse.status}`);
     }
 
-    const webhookResult = await webhookResponse.json();
-    console.log('✅ Webhook acionado com sucesso!');
-    console.log('📦 Resposta do webhook:', webhookResult);
+    let webhookResult: any = {};
+    let apoliceId: number | null = null;
+    
+    try {
+      const responseText = await webhookResponse.text();
+      console.log('📦 Resposta bruta do webhook:', responseText);
+      
+      // Tentar parsear como JSON
+      try {
+        webhookResult = JSON.parse(responseText);
+        console.log('✅ Webhook retornou JSON:', webhookResult);
+      } catch {
+        // Se não for JSON, pode ser apenas o ID da apólice (número)
+        const parsedNumber = parseInt(responseText.trim());
+        if (!isNaN(parsedNumber)) {
+          apoliceId = parsedNumber;
+          console.log('✅ Webhook retornou ID da apólice:', apoliceId);
+        } else {
+          console.warn('⚠️ Webhook retornou resposta inesperada:', responseText);
+        }
+      }
+    } catch (parseError) {
+      console.error('❌ Erro ao processar resposta do webhook:', parseError);
+    }
 
-    return NextResponse.json({
-      success: true,
-      minio_path: minioPath,
-      file_url: fileUrl,
-      status: 'processing',
-      message: 'Documento enviado para processamento via N8N',
-      webhook_response: webhookResult,
-    });
+    // Se o webhook retornou apenas o ID da apólice (resposta síncrona simplificada)
+    if (apoliceId) {
+      console.log('🎉 Webhook processou e retornou ID da apólice! Processamento concluído.');
+      
+      // Atualizar o documento com status de conclusão
+      await pool.query(
+        `UPDATE documentos 
+         SET metadata = $1 
+         WHERE id = $2::uuid`,
+        [
+          JSON.stringify({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            apolice_id: apoliceId,
+          }),
+          documentId
+        ]
+      );
+
+      return NextResponse.json({
+        success: true,
+        document_id: documentId,
+        apolice_id: apoliceId,
+        minio_path: minioPath,
+        file_url: fileUrl,
+        status: 'completed',
+        message: 'Documento processado com sucesso! Apólice criada.',
+      });
+    }
+    
+    // Verificar se o webhook retornou dados extraídos em formato JSON (resposta síncrona detalhada)
+    if (webhookResult.extracted_data && webhookResult.status === 'completed') {
+      console.log('🎉 Webhook retornou dados extraídos! Processamento síncrono.');
+      
+      // Atualizar o documento com os dados extraídos
+      await pool.query(
+        `UPDATE documentos 
+         SET metadata = $1 
+         WHERE id = $2::uuid`,
+        [
+          JSON.stringify({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            extracted_data: webhookResult.extracted_data,
+            apolice_id: webhookResult.apolice_id || null,
+          }),
+          documentId
+        ]
+      );
+
+      // Se o webhook identificou um cliente pelo CPF
+      if (webhookResult.client_cpf) {
+        const cleanCpf = webhookResult.client_cpf.replace(/\D/g, '');
+        const existingClient = await pool.query(
+          `SELECT id FROM users WHERE document = $1 LIMIT 1`,
+          [cleanCpf]
+        );
+
+        if (existingClient.rows.length > 0) {
+          const clientId = existingClient.rows[0].id;
+          await pool.query(
+            `UPDATE documentos SET user_id = $1::uuid WHERE id = $2::uuid`,
+            [clientId, documentId]
+          );
+          console.log('✅ Documento vinculado ao cliente:', clientId);
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        document_id: documentId,
+        apolice_id: webhookResult.apolice_id || null,
+        minio_path: minioPath,
+        file_url: fileUrl,
+        status: 'completed',
+        extracted_data: webhookResult.extracted_data,
+        potential_client: webhookResult.client_cpf ? { cpf: webhookResult.client_cpf } : null,
+        message: 'Documento processado com sucesso pelo N8N',
+      });
+    } else {
+      // Webhook assíncrono - vai chamar o callback depois
+      console.log('⏳ Webhook em modo assíncrono. Aguardando callback...');
+      
+      return NextResponse.json({
+        success: true,
+        document_id: documentId,
+        minio_path: minioPath,
+        file_url: fileUrl,
+        status: 'processing',
+        message: 'Documento enviado para processamento via N8N. Aguardando retorno...',
+        webhook_response: webhookResult,
+      });
+    }
   } catch (error: any) {
     console.error('❌ Erro no upload/webhook:', error);
     return NextResponse.json(
