@@ -70,7 +70,7 @@ export default function NovoEscopoModal({ onClose, onComplete }: NovoEscopoModal
 
       const data = await response.json();
       
-      console.log('📥 RESPOSTA RECEBIDA DA API:', data);
+      console.log('📥 RESPOSTA RECEBIDA DA API:', JSON.stringify(data, null, 2));
       console.log('📊 data.status =', data.status);
       console.log('🆔 data.apolice_id =', data.apolice_id);
       console.log('✅ data.success =', data.success);
