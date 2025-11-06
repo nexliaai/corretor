@@ -217,14 +217,14 @@ export default function BuscaPage() {
                                 )}
                               </div>
 
-                              {(result.document_count > 0 || result.apolices_count > 0) && (
+                              {((result.document_count && result.document_count > 0) || (result.apolices_count && result.apolices_count > 0)) && (
                                 <div className="flex gap-3 mt-3">
-                                  {result.document_count > 0 && (
+                                  {result.document_count && result.document_count > 0 && (
                                     <span className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-medium">
                                       {result.document_count} Documento(s)
                                     </span>
                                   )}
-                                  {result.apolices_count > 0 && (
+                                  {result.apolices_count && result.apolices_count > 0 && (
                                     <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">
                                       {result.apolices_count} Apólice(s)
                                     </span>
