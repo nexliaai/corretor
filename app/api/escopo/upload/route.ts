@@ -161,7 +161,7 @@ export async function POST(request: Request) {
         ]
       );
 
-      return NextResponse.json({
+      const responsePayload = {
         success: true,
         document_id: documentId,
         apolice_id: apoliceId,
@@ -169,7 +169,11 @@ export async function POST(request: Request) {
         file_url: fileUrl,
         status: 'completed',
         message: 'Documento processado com sucesso! Apólice criada.',
-      });
+      };
+      
+      console.log('📤 RETORNANDO PARA FRONTEND:', JSON.stringify(responsePayload, null, 2));
+      
+      return NextResponse.json(responsePayload);
     }
     
     // Verificar se o webhook retornou dados extraídos em formato JSON (resposta síncrona detalhada)

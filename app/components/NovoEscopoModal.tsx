@@ -70,21 +70,27 @@ export default function NovoEscopoModal({ onClose, onComplete }: NovoEscopoModal
 
       const data = await response.json();
       
-      console.log('✅ Resposta do webhook:', data);
+      console.log('📥 RESPOSTA RECEBIDA DA API:', data);
+      console.log('📊 data.status =', data.status);
+      console.log('🆔 data.apolice_id =', data.apolice_id);
+      console.log('✅ data.success =', data.success);
       
       // Se o webhook retornou o ID da apólice (processamento concluído)
       if (data.status === 'completed' && data.apolice_id) {
-        console.log('🎉 Apólice criada! ID:', data.apolice_id);
+        console.log('🎉 ENTRANDO NO FLUXO DE SUCESSO! Apólice ID:', data.apolice_id);
         setStatus('completed');
         setUploading(false);
         setProcessing(false);
         
         // Redirecionar para a página da apólice após 2 segundos
         setTimeout(() => {
+          console.log('🚀 REDIRECIONANDO para /apolice/' + data.apolice_id);
           window.location.href = `/apolice/${data.apolice_id}`;
         }, 2000);
         return;
       }
+      
+      console.log('⚠️ NÃO entrou no fluxo de sucesso, verificando outras condições...');
       
       // Se o webhook retornou dados extraídos em formato detalhado
       if (data.webhook_response && data.webhook_response.extracted_data) {
