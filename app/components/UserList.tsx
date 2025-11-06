@@ -16,7 +16,7 @@ export default function UserList({
   onSelectUser,
   onUserDeleted,
 }: UserListProps) {
-  const handleDelete = async (userId: number, e: React.MouseEvent) => {
+  const handleDelete = async (userId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm('Deseja realmente excluir este usuário e todos os seus arquivos?')) {
       return;

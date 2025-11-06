@@ -86,6 +86,8 @@ export default function NovoEscopoButton({ userId, onComplete }: NovoEscopoButto
     const checkStatus = async () => {
       try {
         const response = await fetch(`/api/escopo/status/${docId}`);
+        let shouldContinue = false;
+        
         if (response.ok) {
           const data = await response.json();
 
@@ -103,10 +105,16 @@ export default function NovoEscopoButton({ userId, onComplete }: NovoEscopoButto
             setErrorMessage(data.error_message || 'Erro no processamento');
             return;
           }
+
+          if (data.status === 'processing') {
+            shouldContinue = true;
+          }
+        } else {
+          shouldContinue = true;
         }
 
         attempts++;
-        if (attempts < maxAttempts && data.status === 'processing') {
+        if (attempts < maxAttempts && shouldContinue) {
           setTimeout(checkStatus, 5000); // Verifica a cada 5 segundos
         } else if (attempts >= maxAttempts) {
           setStatus('error');
@@ -118,6 +126,10 @@ export default function NovoEscopoButton({ userId, onComplete }: NovoEscopoButto
         attempts++;
         if (attempts < maxAttempts) {
           setTimeout(checkStatus, 5000);
+        } else {
+          setStatus('error');
+          setProcessing(false);
+          setErrorMessage('Erro ao verificar status');
         }
       }
     };

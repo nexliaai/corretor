@@ -183,6 +183,7 @@ export default function NovoEscopoModal({ onClose, onComplete }: NovoEscopoModal
     try {
       // Se não encontrou cliente, criar um novo
       let userId = potentialClient?.id;
+      let userDocument = potentialClient?.document || '';
 
       if (!userId) {
         console.log('🆕 Criando novo cliente...');
@@ -192,6 +193,7 @@ export default function NovoEscopoModal({ onClose, onComplete }: NovoEscopoModal
         const cleanCpf = (str: string) => str ? str.replace(/\D/g, '') : '';
         const cpfCnpj = cleanCpf(doc.cnpj || pessoal.document || '');
         const nome = doc.segurado || pessoal.nome || 'Cliente Importado';
+        userDocument = cpfCnpj;
 
         const createResponse = await fetch('/api/users', {
           method: 'POST',
@@ -246,7 +248,8 @@ export default function NovoEscopoModal({ onClose, onComplete }: NovoEscopoModal
           window.location.href = `/apolice/${confirmData.apolice_id}`;
         } else {
           // Senão, redirecionar para perfil do cliente/empresa
-          const isEmpresa = cpfCnpj.length === 14;
+          const cleanDoc = userDocument.replace(/\D/g, '');
+          const isEmpresa = cleanDoc.length === 14;
           const url = isEmpresa ? `/empresa/${userId}` : `/cliente/${userId}`;
           window.location.href = url;
         }
