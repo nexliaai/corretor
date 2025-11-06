@@ -127,13 +127,35 @@ export async function POST(request: Request) {
       // Tentar parsear como JSON
       try {
         webhookResult = JSON.parse(responseText);
-        console.log('✅ Webhook retornou JSON:', webhookResult);
+        console.log('✅ Webhook retornou JSON:', JSON.stringify(webhookResult, null, 2));
+        
+        // N8N retorna um array com estrutura: [{ response: { body: 8, statusCode: 200 } }]
+        if (Array.isArray(webhookResult) && webhookResult.length > 0) {
+          const firstItem = webhookResult[0];
+          if (firstItem.response && firstItem.response.body) {
+            apoliceId = parseInt(firstItem.response.body);
+            console.log('✅ Webhook N8N retornou ID da apólice:', apoliceId);
+          }
+        } 
+        // Ou pode ser apenas o número diretamente
+        else if (typeof webhookResult === 'number') {
+          apoliceId = webhookResult;
+          console.log('✅ Webhook retornou ID da apólice (número direto):', apoliceId);
+        }
+        // Ou pode ser uma string com o número
+        else if (typeof webhookResult === 'string') {
+          const parsed = parseInt(webhookResult.trim());
+          if (!isNaN(parsed)) {
+            apoliceId = parsed;
+            console.log('✅ Webhook retornou ID da apólice (string):', apoliceId);
+          }
+        }
       } catch {
-        // Se não for JSON, pode ser apenas o ID da apólice (número)
+        // Se não for JSON, pode ser apenas o ID da apólice (número puro)
         const parsedNumber = parseInt(responseText.trim());
         if (!isNaN(parsedNumber)) {
           apoliceId = parsedNumber;
-          console.log('✅ Webhook retornou ID da apólice:', apoliceId);
+          console.log('✅ Webhook retornou ID da apólice (texto puro):', apoliceId);
         } else {
           console.warn('⚠️ Webhook retornou resposta inesperada:', responseText);
         }
