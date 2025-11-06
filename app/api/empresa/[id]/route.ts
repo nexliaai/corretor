@@ -11,7 +11,7 @@ export async function GET(
     // Buscar empresa
     const empresaResult = await pool.query(
       `SELECT id, razao_social, nome_fantasia, cnpj, email_principal, 
-              telefone_principal, logradouro, cidade, estado, ramo_atividade
+              telefone_principal, logradouro, numero, cidade, estado, ramo_atividade
        FROM empresas
        WHERE id = $1::uuid`,
       [empresaId]
@@ -37,8 +37,9 @@ export async function GET(
       [empresaId]
     );
 
+    // Retornar empresa com apólices incluídas
     return NextResponse.json({
-      empresa,
+      ...empresa,
       apolices: apolicesResult.rows,
     });
   } catch (error: any) {
